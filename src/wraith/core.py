@@ -88,11 +88,13 @@ class Wraith:
                     backup = dest.with_suffix(f".bak{n}")
                     n += 1
                 print(f"  backing up {dest} -> {backup}")
-                shutil.move(str(dest), str(backup))
+                if not self.dry_run:
+                    shutil.move(str(dest), str(backup))
 
             dest.parent.mkdir(parents=True, exist_ok=True)
             print(f"  linking {dest} -> {entry.source}")
-            os.symlink(str(entry.source), str(dest))
+            if not self.dry_run:
+                os.symlink(str(entry.source), str(dest))
 
         print("Done.")
 

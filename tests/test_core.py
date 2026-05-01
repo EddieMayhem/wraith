@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from wraith.core import DotfileEntry, Wraith, WraithfileParseError
+from wraith.core import DotfileEntry, Wraith
 
 
 class TestDotfileEntry:
@@ -109,6 +109,7 @@ class TestWraith:
 
         try:
             dest = home / ".bashrc"
+            w = self._make_wraithfile(tmp_path, f"bash/.bashrc -> {dest}\n")
             w = Wraith(repo_root=tmp_path, home=home)
             w.install()
 
@@ -132,6 +133,7 @@ class TestWraith:
             dest = home / ".bashrc"
             dest.write_text("original content")
 
+            w = self._make_wraithfile(tmp_path, f"bash/.bashrc -> {dest}\n")
             w = Wraith(repo_root=tmp_path, home=home)
             w.install()
 
@@ -157,6 +159,7 @@ class TestWraith:
             dest = home / ".bashrc"
             dest.write_text("existing")
 
+            w = self._make_wraithfile(tmp_path, f"bash/.bashrc -> {dest}\n")
             w = Wraith(repo_root=tmp_path, home=home, dry_run=True)
             w.install()
 
