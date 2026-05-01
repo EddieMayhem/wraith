@@ -105,6 +105,38 @@ wraith install
 
 ---
 
+## Secrets Management
+
+wraith can encrypt secrets (API keys, tokens, credentials) and store them in the repo without ever exposing the plaintext. It uses Fernet symmetric encryption (AES-128-CBC + HMAC).
+
+**IMPORTANT: Your encryption key (`~/.wraith.key`) must NEVER be committed to git.**
+
+```bash
+# Step 1: Generate an encryption key (one time only)
+wraith secrets init
+
+# Step 2: Encrypt and add a secret file
+wraith secrets add ~/.env                # encrypts ~/.env -> ~/.env
+wraith secrets add /path/to/api_key -> ~/.api_key
+
+# Step 3: On a new machine — decrypt and install
+# (after cloning the repo and running wraith secrets init with your backed-up key)
+wraith secrets install
+```
+
+| Command | Description |
+|---|---|
+| `wraith secrets init` | Generate `~/.wraith.key` (do this on every machine) |
+| `wraith secrets add <src> [dest]` | Encrypt a file and add it to the secrets store |
+| `wraith secrets install` | Decrypt all secrets and write them to their destinations |
+| `wraith secrets status` | Show which secrets are tracked |
+| `wraith secrets remove <dest>` | Remove a secret from tracking |
+| `wraith secrets sync` | Commit secret changes to git |
+
+**Key management:** The key is stored at `~/.wraith.key`. Back it up somewhere safe (password manager, encrypted USB). If you lose it, your secrets in the repo are unrecoverable. Each machine needs its own copy of the same key file.
+
+---
+
 ## License
 
 MIT

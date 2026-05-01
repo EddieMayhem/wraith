@@ -17,12 +17,6 @@ htmlcov/
 # ruff
 .ruff_cache/
 
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+# wraith secrets (NEVER commit these)
+.wraith.key
+.wraith-blobs/

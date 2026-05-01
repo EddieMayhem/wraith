@@ -8,6 +8,7 @@ from pathlib import Path
 
 from wraith import __version__
 from wraith.core import Wraith
+from wraith.secrets import SecretsManager
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,6 +48,31 @@ def main(argv: list[str] | None = None) -> int:
     cmd_add.add_argument("source", type=Path, help="File to track")
     cmd_add.add_argument("dest", type=Path, nargs="?", help="Symlink destination (default: same path in $HOME)")
     cmd_add.set_defaults(func=lambda args: _cmd_add(args))
+
+    # Secrets subcommands
+    cmd_secrets = sub.add_parser("secrets", help="Manage encrypted secrets")
+    secrets_sub = cmd_secrets.add_subparsers(required=True)
+
+    cmd_secrets_init = secrets_sub.add_parser("init", help="Generate ~/.wraith.key encryption key")
+    cmd_secrets_init.set_defaults(func=lambda args: _cmd_secrets_init(args))
+
+    cmd_secrets_add = secrets_sub.add_parser("add", help="Encrypt and add a secret file")
+    cmd_secrets_add.add_argument("source", type=Path, help="Secret file to encrypt and track")
+    cmd_secrets_add.add_argument("dest", type=Path, nargs="?", help="Destination path (default: same as source)")
+    cmd_secrets_add.set_defaults(func=lambda args: _cmd_secrets_add(args))
+
+    cmd_secrets_install = secrets_sub.add_parser("install", help="Decrypt and install all secrets")
+    cmd_secrets_install.set_defaults(func=lambda args: _cmd_secrets_install(args))
+
+    cmd_secrets_status = secrets_sub.add_parser("status", help="Show tracked secrets")
+    cmd_secrets_status.set_defaults(func=lambda args: _cmd_secrets_status(args))
+
+    cmd_secrets_remove = secrets_sub.add_parser("remove", help="Remove a secret by destination")
+    cmd_secrets_remove.add_argument("dest", type=Path, help="Destination path of the secret to remove")
+    cmd_secrets_remove.set_defaults(func=lambda args: _cmd_secrets_remove(args))
+
+    cmd_secrets_sync = secrets_sub.add_parser("sync", help="Commit secret changes to git")
+    cmd_secrets_sync.set_defaults(func=lambda args: _cmd_secrets_sync(args))
 
     args = parser.parse_args(argv)
     try:
@@ -111,6 +137,36 @@ def _cmd_add(args) -> None:
     with open(wf, "a") as f:
         f.write(entry + "\n")
     print(f"Added: {entry}")
+
+
+def _secrets(args) -> SecretsManager:
+    return SecretsManager(repo_root=args.repo)
+
+
+def _cmd_secrets_init(args) -> None:
+    _secrets(args).init()
+
+
+def _cmd_secrets_add(args) -> None:
+    src = args.source.resolve()
+    dest = args.dest.expanduser() if args.dest else None
+    _secrets(args).add(src, dest)
+
+
+def _cmd_secrets_install(args) -> None:
+    _secrets(args).install()
+
+
+def _cmd_secrets_status(args) -> None:
+    _secrets(args).status()
+
+
+def _cmd_secrets_remove(args) -> None:
+    _secrets(args).remove(args.dest)
+
+
+def _cmd_secrets_sync(args) -> None:
+    _secrets(args).sync()
 
 
 if __name__ == "__main__":
