@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -21,9 +22,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--repo",
         type=Path,
-        default=Path(__file__).parent.parent.parent,
+        default=Path(os.environ.get("WRAITH_REPO", Path.cwd())),
         metavar="DIR",
-        help="Path to the wraith repo (default: wherever this is installed)",
+        help="Path to the wraith repo (default: $WRAITH_REPO or CWD)",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Show what would happen without doing it"
@@ -124,12 +125,12 @@ def _cmd_init(args) -> None:
 def _cmd_add(args) -> None:
     src = args.source.resolve()
     dest: Path = args.dest or (Path("~") / src.name)
-    wf = _wraith(args).repo_root / "Wraithfile"
+    w = _wraith(args)
+    wf = w.repo_root / "Wraithfile"
 
     # Make source relative to repo root
-    repo_root = _wraith(args).repo_root
     try:
-        src_rel = src.relative_to(repo_root)
+        src_rel = src.relative_to(w.repo_root)
     except ValueError:
         src_rel = src
 

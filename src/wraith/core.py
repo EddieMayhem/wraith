@@ -82,10 +82,10 @@ class Wraith:
         for entry in self.entries():
             dest = entry.dest
             if dest.is_symlink() or dest.exists():
-                backup = dest.with_suffix(dest.suffix + ".bak")
+                backup = dest.with_name(dest.name + ".bak")
                 n = 1
-                while backup.exists():
-                    backup = dest.with_suffix(f".bak{n}")
+                while backup.exists() or backup.is_symlink():
+                    backup = dest.with_name(f"{dest.name}.bak{n}")
                     n += 1
                 print(f"  backing up {dest} -> {backup}")
                 if not self.dry_run:
@@ -94,6 +94,7 @@ class Wraith:
             dest.parent.mkdir(parents=True, exist_ok=True)
             print(f"  linking {dest} -> {entry.source}")
             if not self.dry_run:
+                dest.unlink(missing_ok=True)
                 os.symlink(str(entry.source), str(dest))
 
         print("Done.")

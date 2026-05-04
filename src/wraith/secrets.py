@@ -13,6 +13,7 @@ The encrypted blobs are stored alongside the Wraithfile, named:
 from __future__ import annotations
 
 import base64
+import datetime
 import hashlib
 import os
 import shutil
@@ -40,13 +41,29 @@ class SecretEntry:
     dest: Path  # where the decrypted content goes
 
 
+def _write_secure(path: Path, data: bytes) -> None:
+    """Atomically create a file with mode 0o600 and write data to it.
+
+    Removes any existing file first so O_EXCL succeeds.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+    fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        os.write(fd, data)
+    finally:
+        os.close(fd)
+
+
 def _load_key() -> bytes:
     """Load the Fernet key from ~/.wraith.key, or generate and save one."""
     if KEY_FILE.exists():
         return KEY_FILE.read_text().strip().encode()
     key = Fernet.generate_key()
-    KEY_FILE.write_text(key.decode())
-    os.chmod(KEY_FILE, 0o600)
+    _write_secure(KEY_FILE, key)
     return key
 
 
@@ -115,6 +132,15 @@ class SecretsManager:
 
         dest = (dest or source).expanduser()
 
+        # Reject path traversal: dest must resolve under HOME
+        if ".." in dest.parts:
+            raise ValueError(f"Refusing dest with '..': {dest}")
+        home = Path(os.environ["HOME"]).resolve()
+        try:
+            dest.resolve().relative_to(home)
+        except ValueError:
+            raise ValueError(f"Refusing dest outside HOME: {dest}")
+
         # Determine where the encrypted blob goes
         self.blob_dir.mkdir(parents=True, exist_ok=True)
         blob_name = _hash_path(dest)
@@ -157,10 +183,17 @@ class SecretsManager:
                 print(f"  ! decryption failed for {entry.dest}: {exc}")
                 continue
 
+            # Validate dest is under HOME (block path traversal)
+            home = Path(os.environ["HOME"]).resolve()
+            try:
+                resolved_dest = entry.dest.resolve()
+                resolved_dest.relative_to(home)
+            except ValueError:
+                print(f"  ! refusing to write outside HOME: {entry.dest}")
+                continue
+
             entry.dest.parent.mkdir(parents=True, exist_ok=True)
-            entry.dest.write_bytes(plaintext)
-            # Restrict permissions: owner-only read/write
-            os.chmod(entry.dest, 0o600)
+            _write_secure(entry.dest, plaintext)
             print(f"  ✓ {entry.dest}")
 
         print("Done.")
@@ -204,7 +237,6 @@ class SecretsManager:
             print("No secret changes to commit.")
             return
 
-        import datetime
         stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         subprocess.run(["git", "commit", "-m", f"wraith: sync secrets {stamp}"], check=True)
         print("Secrets committed.")
